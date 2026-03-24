@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Circuit Planner">
+<title>Circuit Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #181c25;
+    --surface2: #1f2434;
+    --border: #2a3045;
+    --border2: #3a4560;
+    --text: #e8eaf2;
+    --text2: #8b93aa;
+    --text3: #555f7a;
+    --green: #22c87a;
+    --amber: #f0a22a;
+    --red: #e8483a;
+    --blue: #4a9eff;
+    --blue-dim: #0d2545;
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    overscroll-behavior: none;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    height: -webkit-fill-available;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: calc(var(--safe-top) + 10px) 16px 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .h-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .h-title span { color: var(--blue); }
+  .h-total { font-family: var(--mono); font-size: 11px; color: var(--text2); text-align: right; }
+  .h-total strong { color: var(--text); display: block; font-size: 13px; }
+
+  /* TAB BAR */
+  .tab-bar {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+
+  .tab-btn {
+    flex: 0 0 auto;
+    padding: 10px 14px;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+    position: relative;
+  }
+  .tab-btn.active {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+  }
+  .tab-btn .tab-w {
+    font-family: var(--mono);
+    font-size: 10px;
+    display: block;
+    color: var(--text3);
+    margin-top: 1px;
+  }
+  .tab-btn.active .tab-w { color: var(--blue); opacity: 0.7; }
+  .tab-btn .tab-dot {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    display: none;
+  }
+  .tab-btn.has-fixtures .tab-dot { display: block; }
+  .tab-btn.warn-tab .tab-dot { background: var(--amber); }
+  .tab-btn.over-tab .tab-dot { background: var(--red); }
+
+  /* VIEWS */
+  #main-content {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .view { display: none; height: 100%; overflow-y: auto; }
+  .view.active { display: block; }
+
+  /* CIRCUIT VIEW */
+  .circuit-view-inner {
+    padding: 14px 14px 24px;
+  }
+
+  .circuit-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .circuit-label-input {
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    outline: none;
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text2);
+    padding: 2px 0;
+    width: 150px;
+  }
+  .circuit-label-input:focus { color: var(--text); border-bottom-color: var(--blue); }
+  .circuit-label-input::placeholder { color: var(--text3); }
+
+  .clear-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text3);
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+  }
+  .clear-btn:active { color: var(--red); border-color: var(--red); }
+
+  .watt-meter {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+  .watt-meter-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .watt-num { font-family: var(--mono); font-size: 22px; font-weight: 500; }
+  .watt-num.ok { color: var(--green); }
+  .watt-num.warn { color: var(--amber); }
+  .watt-num.over { color: var(--red); }
+  .watt-cap { font-family: var(--mono); font-size: 13px; color: var(--text3); }
+  .watt-bar-bg { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .watt-bar-fill { height: 100%; border-radius: 4px; transition: width 0.25s, background 0.25s; }
+
+  .section-head {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    margin-bottom: 8px;
+  }
+
+  .fx-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .fx-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .fx-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .fx-card-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.35;
+    flex: 1;
+  }
+  .fx-card-remove {
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    margin-top: -2px;
+  }
+  .fx-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .fx-card-watts {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .qty-control {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .qty-control button {
+    width: 36px;
+    height: 32px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .qty-control button:active { background: var(--border2); }
+  .qty-control span {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text);
+    min-width: 28px;
+    text-align: center;
+  }
+
+  .empty-circuit {
+    text-align: center;
+    padding: 32px 20px;
+    font-size: 14px;
+    color: var(--text3);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    line-height: 1.7;
+  }
+
+  /* PALETTE VIEW */
+  .palette-inner { padding: 14px; }
+
+  .palette-search {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    padding: 11px 16px;
+    outline: none;
+    margin-bottom: 12px;
+  }
+  .palette-search:focus { border-color: var(--blue); }
+  .palette-search::placeholder { color: var(--text3); }
+
+  .add-target-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+  }
+  .add-target-row label { font-size: 13px; color: var(--text2); flex: 1; }
+  #mob-target {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    padding: 6px 12px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .p-list { display: flex; flex-direction: column; gap: 6px; }
+  .p-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .p-item.depleted { opacity: 0.35; }
+  .p-item-info { flex: 1; min-width: 0; }
+  .p-item-name { font-size: 14px; font-weight: 500; color: var(--text); }
+  .p-item-meta { font-family: var(--mono); font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .p-item-avail {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 3px 8px;
+    white-space: nowrap;
+  }
+  .p-item-avail.low { color: var(--amber); border-color: #3d2a0a; }
+  .p-item-avail.zero { color: var(--red); border-color: #3d1210; }
+
+  .p-add-btn {
+    width: 38px;
+    height: 38px;
+    background: var(--blue-dim);
+    border: 1px solid var(--blue);
+    border-radius: 10px;
+    color: var(--blue);
+    font-size: 22px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .p-add-btn:active { background: var(--blue); color: #fff; }
+  .p-item.depleted .p-add-btn { pointer-events: none; }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    display: flex;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    padding-bottom: var(--safe-bottom);
+  }
+  .nav-btn {
+    flex: 1;
+    padding: 10px 8px;
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-family: var(--font);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.15s;
+  }
+  .nav-btn.active { color: var(--blue); }
+  .nav-icon { font-size: 20px; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: calc(var(--safe-bottom) + 80px);
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: var(--red);
+    color: #fff;
+    font-size: 13px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+    z-index: 999;
+    white-space: nowrap;
+    max-width: 90vw;
+    text-align: center;
+    line-height: 1.4;
+    white-space: normal;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div>
+      <div class="h-title">&#9889; CIRCUIT <span>PLANNER</span></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px;font-family:var(--mono);">6 CIRCUITS × 1,900W</div>
+    </div>
+    <div class="h-total">
+      <span>TOTAL LOAD</span>
+      <strong id="mob-total">0W</strong>
+    </div>
+  </header>
+
+  <div class="tab-bar" id="circuit-tabs"></div>
+
+  <div id="main-content">
+    <div id="view-palette" class="view">
+      <div class="palette-inner">
+        <input type="search" class="palette-search" id="mob-search" placeholder="Search fixtures..." />
+        <div class="add-target-row">
+          <label>Add fixtures to:</label>
+          <select id="mob-target">
+            <option value="0">Circuit 1</option>
+            <option value="1">Circuit 2</option>
+            <option value="2">Circuit 3</option>
+            <option value="3">Circuit 4</option>
+            <option value="4">Circuit 5</option>
+            <option value="5">Circuit 6</option>
+          </select>
+        </div>
+        <div class="p-list" id="mob-palette-list"></div>
+      </div>
+    </div>
+    <div id="view-c0" class="view circuit-view active"></div>
+    <div id="view-c1" class="view circuit-view"></div>
+    <div id="view-c2" class="view circuit-view"></div>
+    <div id="view-c3" class="view circuit-view"></div>
+    <div id="view-c4" class="view circuit-view"></div>
+    <div id="view-c5" class="view circuit-view"></div>
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-btn active" id="nav-c0" onclick="showCircuit(0)">
+      <span class="nav-icon">&#9889;</span>
+      <span>C1</span>
+    </button>
+    <button class="nav-btn" id="nav-c1" onclick="showCircuit(1)">
+      <span class="nav-icon">&#9889;</span>
+      <span>C2</span>
+    </button>
+    <button class="nav-btn" id="nav-c2" onclick="showCircuit(2)">
+      <span class="nav-icon">&#9889;</span>
+      <span>C3</span>
+    </button>
+    <button class="nav-btn" id="nav-c3" onclick="showCircuit(3)">
+      <span class="nav-icon">&#9889;</span>
+      <span>C4</span>
+    </button>
+    <button class="nav-btn" id="nav-c4" onclick="showCircuit(4)">
+      <span class="nav-icon">&#9889;</span>
+      <span>C5</span>
+    </button>
+    <button class="nav-btn" id="nav-c5" onclick="showCircuit(5)">
+      <span class="nav-icon">&#9889;</span>
+      <span>C6</span>
+    </button>
+    <button class="nav-btn" id="nav-palette" onclick="showPalette()">
+      <span class="nav-icon">&#43;</span>
+      <span>Add</span>
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="mob-toast"></div>
+
+<script>
+const FIXTURES = [
+  { id:1,  name:"Black Par 46",                    barcode:"00010", watts:200, total:133 },
+  { id:2,  name:"Black Par 38",                    barcode:"BP38",  watts:80,  total:160 },
+  { id:3,  name:"Black Pin Spot",                  barcode:"00011", watts:35,  total:30  },
+  { id:4,  name:"White Par 38",                    barcode:"01662", watts:80,  total:45  },
+  { id:5,  name:"White Par 38 (Large)",            barcode:"02699", watts:80,  total:11  },
+  { id:6,  name:"White Par 46",                    barcode:"01663", watts:200, total:70  },
+  { id:7,  name:"White Pin Spot",                  barcode:"01915", watts:35,  total:44  },
+  { id:8,  name:"Black Mini Source 4 (Leko)",      barcode:"02248", watts:5,   total:5   },
+  { id:9,  name:"Black Source 4 Ellipsoidal",      barcode:"00017", watts:375, total:34  },
+  { id:10, name:"Source Four Jr.",                 barcode:"02646", watts:375, total:48  },
+  { id:11, name:"White Source 4 Ellipsoidal",      barcode:"01664", watts:375, total:24  },
+  { id:12, name:"Colour 5 Profile LED Ellipsoidal",barcode:"02087", watts:220, total:18  },
+  { id:13, name:"Elation Sixpar 100",              barcode:"00971", watts:90,  total:16  },
+  { id:14, name:"ADJ LED Pixel 10-Ch Controller",  barcode:"02692", watts:200, total:4   },
+  { id:15, name:"Elation Sixpar 200",              barcode:"00970", watts:150, total:24  },
+  { id:16, name:"Hi Bay LED",                      barcode:"02076", watts:150, total:9   },
+  { id:17, name:"IP Sixpar 200",                   barcode:"01667", watts:150, total:19  },
+  { id:18, name:"Quad-Par 18 RGBA LED",            barcode:"00039", watts:117, total:12  },
+  { id:19, name:"Quad-Par 7 RGBA LED",             barcode:"00038", watts:74,  total:17  },
+  { id:20, name:"Saber Spot RGBW 15W LED",         barcode:"02066", watts:15,  total:38  },
+  { id:21, name:"Ultra Hex Batten 12 LED 40\"",    barcode:"00861", watts:90,  total:28  },
+  { id:22, name:"White WiFLy Par QA5",             barcode:"00665", watts:55,  total:10  },
+  { id:23, name:"WiFLY EXR QA5 IP Outdoor",        barcode:"02067", watts:55,  total:18  },
+  { id:24, name:"Source 4 PAR",                    barcode:"02291", watts:750, total:23  },
+  { id:25, name:"Satura Profile 440W LED",         barcode:"02064", watts:440, total:12  },
+  { id:26, name:"ZW37-II Wash Beam RGBW MH",       barcode:"02065", watts:714, total:16  },
+];
+
+const MAX_W = 1900;
+let circuits = Array.from({length:6}, (_,i) => ({ name:'Circuit '+(i+1), fixtures:[] }));
+let activeView = 'c0';
+let toastTimer = null;
+
+function toast(msg) {
+  const el = document.getElementById('mob-toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function usedQty(fid) {
+  return circuits.reduce((s,c) => { const f=c.fixtures.find(x=>x.fid===fid); return s+(f?f.qty:0); }, 0);
+}
+function circuitWatts(ci) {
+  return circuits[ci].fixtures.reduce((s,f) => { const fix=FIXTURES.find(x=>x.id===f.fid); return s+fix.watts*f.qty; }, 0);
+}
+
+function addToCircuit(fid, ci) {
+  const fix = FIXTURES.find(x=>x.id===fid);
+  if (fix.total - usedQty(fid) <= 0) { toast('No more ' + fix.name + ' available.'); return; }
+  const cw = circuitWatts(ci);
+  if (cw + fix.watts > MAX_W) { toast('Circuit '+(ci+1)+' would exceed 1,900W! ('+(cw+fix.watts)+'W)'); return; }
+  const ex = circuits[ci].fixtures.find(x=>x.fid===fid);
+  if (ex) ex.qty++; else circuits[ci].fixtures.push({fid, qty:1});
+  render();
+}
+
+function changeQty(ci, fid, delta) {
+  const fix = FIXTURES.find(x=>x.id===fid);
+  const entry = circuits[ci].fixtures.find(x=>x.fid===fid);
+  if (!entry) return;
+  if (delta > 0) {
+    if (fix.total - usedQty(fid) <= 0) { toast('No more ' + fix.name + ' available.'); return; }
+    if (circuitWatts(ci) + fix.watts > MAX_W) { toast('Circuit '+(ci+1)+' would exceed 1,900W!'); return; }
+  }
+  entry.qty += delta;
+  if (entry.qty <= 0) circuits[ci].fixtures = circuits[ci].fixtures.filter(x=>x.fid!==fid);
+  render();
+}
+
+function removeFixture(ci, fid) {
+  circuits[ci].fixtures = circuits[ci].fixtures.filter(x=>x.fid!==fid);
+  render();
+}
+
+function clearCircuit(ci) {
+  circuits[ci].fixtures = [];
+  render();
+}
+
+function showCircuit(ci) {
+  activeView = 'c' + ci;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-c' + ci).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('nav-c' + ci).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const tb = document.getElementById('tab-' + ci);
+  if (tb) { tb.classList.add('active'); tb.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'}); }
+}
+
+function showPalette() {
+  activeView = 'palette';
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-palette').classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('nav-palette').classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+}
+
+function renderTabs() {
+  const bar = document.getElementById('circuit-tabs');
+  bar.innerHTML = '';
+  circuits.forEach((c, ci) => {
+    const w = circuitWatts(ci);
+    const hasFix = c.fixtures.length > 0;
+    const warnClass = w > MAX_W ? 'over-tab' : w > 1600 ? 'warn-tab' : '';
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn' + (activeView==='c'+ci?' active':'') + (hasFix?' has-fixtures':'') + (warnClass?' '+warnClass:'');
+    btn.id = 'tab-' + ci;
+    btn.innerHTML = `C${ci+1}<span class="tab-w">${w}W</span><span class="tab-dot"></span>`;
+    btn.onclick = () => showCircuit(ci);
+    bar.appendChild(btn);
+  });
+}
+
+function renderCircuitViews() {
+  circuits.forEach((c, ci) => {
+    const watts = circuitWatts(ci);
+    const pct = Math.min((watts / MAX_W) * 100, 100);
+    const barColor = watts > MAX_W ? '#e8483a' : watts > 1600 ? '#f0a22a' : '#22c87a';
+    const wClass = watts > MAX_W ? 'over' : watts > 1600 ? 'warn' : 'ok';
+    const view = document.getElementById('view-c' + ci);
+    view.innerHTML = `<div class="circuit-view-inner">
+      <div class="circuit-meta">
+        <input class="circuit-label-input" value="${c.name}" placeholder="Circuit name..." onchange="circuits[${ci}].name=this.value;renderTabs();" />
+        <button class="clear-btn" onclick="clearCircuit(${ci})">Clear</button>
+      </div>
+      <div class="watt-meter">
+        <div class="watt-meter-row">
+          <span class="watt-num ${wClass}">${watts}W</span>
+          <span class="watt-cap">/ ${MAX_W}W</span>
+        </div>
+        <div class="watt-bar-bg"><div class="watt-bar-fill" style="width:${pct}%;background:${barColor};"></div></div>
+      </div>
+      <div class="section-head">FIXTURES ON THIS CIRCUIT</div>
+      <div class="fx-list">
+        ${c.fixtures.length === 0 ? `<div class="empty-circuit">No fixtures added.<br>Tap <strong>Add (+)</strong> below to browse inventory.</div>` : ''}
+        ${c.fixtures.map(e => {
+          const fix = FIXTURES.find(x => x.id === e.fid);
+          return `<div class="fx-card">
+            <div class="fx-card-top">
+              <span class="fx-card-name">${fix.name}</span>
+              <button class="fx-card-remove" onclick="removeFixture(${ci},${fix.id})">×</button>
+            </div>
+            <div class="fx-card-bottom">
+              <span class="fx-card-watts">${fix.watts}W × ${e.qty} = <strong>${fix.watts * e.qty}W</strong></span>
+              <div class="qty-control">
+                <button onclick="changeQty(${ci},${fix.id},-1)">−</button>
+                <span>${e.qty}</span>
+                <button onclick="changeQty(${ci},${fix.id},1)">+</button>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  });
+}
+
+function renderPalette() {
+  const q = document.getElementById('mob-search').value.toLowerCase();
+  const list = document.getElementById('mob-palette-list');
+  list.innerHTML = '';
+  FIXTURES.filter(f => f.name.toLowerCase().includes(q) || f.barcode.toLowerCase().includes(q)).forEach(fix => {
+    const used = usedQty(fix.id);
+    const avail = fix.total - used;
+    const depleted = avail <= 0;
+    const aC = avail === 0 ? 'zero' : avail <= 3 ? 'low' : '';
+    const item = document.createElement('div');
+    item.className = 'p-item' + (depleted ? ' depleted' : '');
+    item.innerHTML = `
+      <div class="p-item-info">
+        <div class="p-item-name">${fix.name}</div>
+        <div class="p-item-meta">${fix.watts}W &nbsp;·&nbsp; #${fix.barcode}</div>
+      </div>
+      <span class="p-item-avail ${aC}">${avail}/${fix.total}</span>
+      <button class="p-add-btn" onclick="addFromPalette(${fix.id})" ${depleted?'disabled':''}>+</button>`;
+    list.appendChild(item);
+  });
+}
+
+function addFromPalette(fid) {
+  const ci = parseInt(document.getElementById('mob-target').value);
+  addToCircuit(fid, ci);
+  if (activeView !== 'palette') render();
+}
+
+function render() {
+  let total = 0;
+  circuits.forEach((_,ci) => total += circuitWatts(ci));
+  document.getElementById('mob-total').textContent = total.toLocaleString() + 'W';
+  renderTabs();
+  renderCircuitViews();
+  renderPalette();
+}
+
+document.getElementById('mob-search').addEventListener('input', renderPalette);
+render();
+</script>
+</body>
+</html>
